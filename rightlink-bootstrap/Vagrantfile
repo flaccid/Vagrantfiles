@@ -1,0 +1,26 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "rightlink_bootstrap"
+
+  config.vm.box_url = "http://files.vagrantup.com/precise64.box"
+
+  config.vm.provision :shell, :inline => "cat > /etc/apt/sources.list.d/rightlink-beta.sources.list <<EOF
+deb [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
+deb-src [arch=amd64] https://rightlink-staging.s3.amazonaws.com/apt precise main
+EOF"
+
+  config.vm.provision :shell, :inline => "apt-get -y install wget"
+  config.vm.provision :shell, :inline => "wget https://s3.amazonaws.com/rightscale_key_pub/rightscale_key.pub -O /tmp/rightscale_key.pub && apt-key add /tmp/rightscale_key.pub"
+
+  config.vm.provision :shell, :inline => "apt-get update"
+
+  config.vm.provision :shell, :inline => "apt-get -y install rightlink-cloud-none"
+
+  #config.vm.provision :shell, :inline => "service rightscale start && service rightlink start"
+
+  # do more provisioning here
+end
