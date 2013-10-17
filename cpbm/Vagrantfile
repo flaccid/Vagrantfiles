@@ -5,21 +5,24 @@
 VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  # All Vagrant configuration is done here. The most common configuration
-  # options are documented and commented below. For a complete reference,
-  # please see the online documentation at vagrantup.com.
-
-  # Every Vagrant virtual environment requires a box to build off of.
   config.vm.box = "cpbm"
+
+  # set to true to reset (drop & create) the database
+  reset_database = false
+  #reset_database = true
 
   # The url from where the 'config.vm.box' box will be fetched if it
   # doesn't already exist on the user's system.
   config.vm.box_url = "https://s3.amazonaws.com/itmat-public/centos-6.3-chef-10.14.2.box"
 
+  # set this to the IP address of your LAN's router, comment out if not
+  # using public_network/bridged
+  default_router = "192.168.0.1"
+
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine. In the example below,
   # accessing "localhost:8080" will access port 80 on the guest machine.
-  config.vm.network :forwarded_port, guest: 8080, host: 8080
+  #config.vm.network :forwarded_port, guest: 8080, host: 8080
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -28,13 +31,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
   # your network.
-  config.vm.network :public_network
+  #config.vm.network :public_network
+  config.vm.network :public_network, ip: "192.168.0.105"     # with static IP, useful for server sharing
 
-  # If true, then any SSH connections made will enable agent forwarding.
-  # Default value: false
-  # config.ssh.forward_agent = true
-
-  #config.ssh.default.username = "cpbm"
+  # change/ensure the default route via the local network's WAN router,
+  # useful for public_network/bridged mode
+  config.vm.provision :shell, :inline => "ip route delete default 2>&1 >/dev/null || true; ip route add default via #{default_router}"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
@@ -61,18 +63,15 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     vb.customize ["modifyvm", :id, "--memory", "8192"]
   end
 
-  # Enable provisioning with chef solo, specifying a cookbooks path, roles
-  # path, and data_bags path (all relative to this Vagrantfile), and adding
-  # some recipes and/or roles.
-  #
-  # config.vm.provision :chef_solo do |chef|
-  #   chef.cookbooks_path = "../my-recipes/cookbooks"
-  #   chef.roles_path = "../my-recipes/roles"
-  #   chef.data_bags_path = "../my-recipes/data_bags"
-  #   chef.add_recipe "mysql"
-  #   chef.add_role "web"
-  #
-  #   # You may also specify custom JSON attributes:
-  #   chef.json = { :mysql_password => "foo" }
-  # end
+  # reset the cloud portal databases to remove state for dev/test
+  if reset_database
+    config.vm.provision :shell, :inline => "service cloud-portal stop"
+    config.vm.provision :shell, :inline => "mysql -e 'DROP DATABASE IF EXISTS `cloud_portal`;'"
+    config.vm.provision :shell, :inline => "mysql -e 'DROP DATABASE IF EXISTS `cloud_reports`;'"
+    config.vm.provision :shell, :inline => "mysql -e 'DROP DATABASE IF EXISTS `cloud_portal`;'"
+    config.vm.provision :shell, :inline => "mysql -e 'CREATE DATABASE IF NOT EXISTS `cloud_portal`;'"
+    config.vm.provision :shell, :inline => "mysql -e 'CREATE DATABASE IF NOT EXISTS `cloud_reports`;'"
+    config.vm.provision :shell, :inline => "mysql -e 'CREATE DATABASE IF NOT EXISTS `cloud_portal`;'"
+    config.vm.provision :shell, :inline => "service cloud-portal start"
+  end
 end
